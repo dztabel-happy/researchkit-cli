@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0.0",
+  "binary_name": "research-kit",
+  "core_package": "@dztabel/researchkit-cli-core",
+  "env_override": "RESEARCHKIT_CORE_BIN",
+  "platform_packages": [
+    { "os": "darwin", "cpu": "arm64", "package": "@dztabel/researchkit-darwin-arm64", "optional": true },
+    { "os": "darwin", "cpu": "x64", "package": "@dztabel/researchkit-darwin-x64", "optional": true },
+    { "os": "linux", "cpu": "x64", "package": "@dztabel/researchkit-linux-x64", "optional": true },
+    { "os": "win32", "cpu": "x64", "package": "@dztabel/researchkit-win32-x64", "optional": true }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@dztabel/researchkit",
+  "version": "0.1.0",
+  "description": "Public npm entry for ResearchKit: thin wrapper, platform metadata, skill and examples.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "commonjs",
+  "bin": {
+    "research-kit": "bin/research-kit.js"
+  },
+  "files": [
+    "bin/",
+    "platform/",
+    "skills/",
+    "examples/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "smoke": "node bin/research-kit.js --help"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
