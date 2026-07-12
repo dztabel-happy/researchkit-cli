@@ -380,6 +380,7 @@ test('checked-in platform templates stay private while the public release workfl
   assert.match(workflow, /packages\/\*\.tgz/);
   assert.match(workflow, /formal-stage\/release-metadata\.json/);
   assert.match(workflow, /researchkit-preflight\.log/);
+  assert.match(workflow, /category=root-wrapper-mode/);
   assert.match(workflow, /Release preflight failed\. Run the private manual sweep for details\./);
   assert.doesNotMatch(workflow, /release-preflight\.js[^\n]*\|\s*tee/);
   assert.match(workflow, /tar -czf researchkit-native-release-stage\.tar\.gz formal-stage formal-preflight\.json/);
