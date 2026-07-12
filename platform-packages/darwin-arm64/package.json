@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "description": "ResearchKit CLI binary for macOS arm64.",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "UNLICENSED",
   "repository": { "type": "git", "url": "https://github.com/dztabel-happy/researchkit-cli.git" },
   "os": ["darwin"],
   "cpu": ["arm64"],
   "bin": { "research-kit": "bin/research-kit" },
-  "files": ["bin/", "checksums.json", "LICENSE"],
+  "files": ["bin/", "checksums.json"],
   "engines": { "node": ">=20.0.0" },
   "publishConfig": { "access": "public" }
 }

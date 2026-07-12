@@ -84,13 +84,15 @@ function matchingPlatform(meta) {
   return meta.platform_packages.find((entry) => entry.os === process.platform && entry.cpu === process.arch);
 }
 
-test('root optional dependencies and platform templates stay in version lockstep', () => {
+test('root and platform package metadata stay in lockstep', () => {
   const rootPackage = readJson(path.join(root, 'package.json'));
   const meta = readJson(path.join(root, 'platform', 'packages.json'));
   const repository = { type: 'git', url: 'https://github.com/dztabel-happy/researchkit-cli.git' };
   const expected = Object.fromEntries(meta.platform_packages.map((entry) => [entry.package, rootPackage.version]));
   assert.deepEqual(rootPackage.optionalDependencies, expected);
   assert.deepEqual(rootPackage.repository, repository);
+  assert.equal(rootPackage.license, 'UNLICENSED');
+  assert.equal(rootPackage.files.includes('LICENSE'), false);
 
   for (const entry of meta.platform_packages) {
     assert.equal(entry.version, rootPackage.version);
@@ -105,6 +107,8 @@ test('root optional dependencies and platform templates stay in version lockstep
     assert.equal(template.bin['research-kit'], binary);
     assert.equal(template.private, true);
     assert.deepEqual(template.repository, repository);
+    assert.equal(template.license, 'UNLICENSED');
+    assert.equal(template.files.includes('LICENSE'), false);
   }
 });
 
@@ -174,6 +178,7 @@ test('Skill metadata, UI metadata, and Plugin manifest are installable contracts
   const plugin = readJson(path.join(root, '.codex-plugin', 'plugin.json'));
   assert.equal(plugin.name, 'researchkit');
   assert.equal(plugin.version, rootPackage.version);
+  assert.equal(plugin.license, rootPackage.license);
   assert.equal(plugin.skills, './skills/');
   assert.ok(plugin.author.name);
   assert.ok(plugin.interface.displayName);
@@ -299,8 +304,6 @@ test('release staging preserves mode, writes checksums, and passes clean-consume
 
   const artifacts = path.join(tmp, 'artifacts');
   const staged = path.join(tmp, 'staged');
-  const binaryLicense = path.join(tmp, 'BINARY-LICENSE');
-  write(binaryLicense, 'Test-only binary license fixture.\n');
   const meta = readJson(path.join(root, 'platform', 'packages.json'));
   const buildMetadata = {
     schema_version: '1.0.0',
@@ -344,8 +347,7 @@ test('release staging preserves mode, writes checksums, and passes clean-consume
     const rejected = run(process.execPath, [
       stageScript,
       '--artifacts', artifacts,
-      '--output', staged,
-      '--binary-license', binaryLicense
+      '--output', staged
     ]);
     assert.notEqual(rejected.status, 0, `stage-release must reject build metadata with ${field}=${value}`);
     assert.match(rejected.stderr, new RegExp(field));
@@ -355,8 +357,7 @@ test('release staging preserves mode, writes checksums, and passes clean-consume
   const stage = run(process.execPath, [
     stageScript,
     '--artifacts', artifacts,
-    '--output', staged,
-    '--binary-license', binaryLicense
+    '--output', staged
   ]);
   assert.equal(stage.status, 0, stage.stderr || stage.stdout);
   for (const entry of meta.platform_packages) {
@@ -369,9 +370,11 @@ test('release staging preserves mode, writes checksums, and passes clean-consume
     assert.equal(checksums.algorithm, 'sha256');
     assert.equal(checksums.files[binaryRel], digest);
     assert.equal(packageJson.private, undefined);
-    assert.equal(fs.readFileSync(path.join(packageRoot, 'LICENSE'), 'utf8'), 'Test-only binary license fixture.\n');
+    assert.equal(packageJson.license, 'UNLICENSED');
+    assert.equal(fs.existsSync(path.join(packageRoot, 'LICENSE')), false);
     if (entry.os !== 'win32') assert.notEqual(fs.statSync(binary).mode & 0o111, 0);
   }
+  assert.equal(Object.hasOwn(readJson(path.join(staged, 'release-metadata.json')), 'binary_license'), false);
 
   const preflight = run(process.execPath, [preflightScript, '--stage', staged]);
   assert.equal(preflight.status, 0, preflight.stderr || preflight.stdout);

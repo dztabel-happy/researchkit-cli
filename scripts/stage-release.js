@@ -95,7 +95,7 @@ function validateTemplate(template, entry, rootPackage, binaryRel) {
   if (template.os[0] !== entry.os || template.cpu[0] !== entry.cpu || template.bin['research-kit'] !== binaryRel) {
     throw new Error(`platform template target mismatch: ${entry.directory}`);
   }
-  if (template.license !== 'SEE LICENSE IN LICENSE' || !template.files.includes('LICENSE')) {
+  if (template.license !== 'UNLICENSED' || template.files.includes('LICENSE')) {
     throw new Error(`platform template license contract mismatch: ${entry.directory}`);
   }
   if (JSON.stringify(template.repository) !== JSON.stringify(rootPackage.repository)) {
@@ -120,18 +120,12 @@ function validatePlatformEntry(entry) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  if (!args.artifacts || !args.output || !args['binary-license']) {
-    throw new Error('usage: stage-release --artifacts <core-build-dir> --output <staging-dir> --binary-license <file> [--host-only]');
+  if (!args.artifacts || !args.output) {
+    throw new Error('usage: stage-release --artifacts <core-build-dir> --output <staging-dir> [--host-only]');
   }
   const artifacts = canonicalPath(args.artifacts);
   const output = canonicalPath(args.output);
-  const binaryLicense = canonicalPath(args['binary-license']);
-  validateOutputPath(output, artifacts, binaryLicense, canonicalPath(root), canonicalPath(os.homedir()));
-
-  const licenseContents = fs.readFileSync(binaryLicense);
-  if (!fs.statSync(binaryLicense).isFile() || licenseContents.toString('utf8').trim() === '') {
-    throw new Error('binary license must be an explicit non-empty file');
-  }
+  validateOutputPath(output, artifacts, canonicalPath(root), canonicalPath(os.homedir()));
   const rootPackage = readJson(path.join(root, 'package.json'));
   const meta = readJson(path.join(root, 'platform', 'packages.json'));
   const buildMetadata = readJson(path.join(artifacts, 'build-metadata.json'));
@@ -167,11 +161,10 @@ function main() {
     delete packageManifest.private;
     const packageDir = path.resolve(output, entry.directory);
     const destination = path.resolve(packageDir, binaryRel);
-    const licenseDestination = path.join(packageDir, 'LICENSE');
     const manifestDestination = path.join(packageDir, 'package.json');
     const checksumsDestination = path.join(packageDir, 'checksums.json');
     ensureInside(output, packageDir);
-    for (const file of [destination, licenseDestination, manifestDestination, checksumsDestination]) ensureInside(packageDir, file);
+    for (const file of [destination, manifestDestination, checksumsDestination]) ensureInside(packageDir, file);
     validated.push({
       entry,
       binaryRel,
@@ -181,7 +174,6 @@ function main() {
       packageManifest,
       packageDir,
       destination,
-      licenseDestination,
       manifestDestination,
       checksumsDestination
     });
@@ -203,14 +195,12 @@ function main() {
       packageManifest,
       packageDir,
       destination,
-      licenseDestination,
       manifestDestination,
       checksumsDestination
     } = item;
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     fs.copyFileSync(source, destination);
     fs.chmodSync(destination, sourceStat.mode & 0o777);
-    fs.writeFileSync(licenseDestination, licenseContents);
     fs.writeFileSync(manifestDestination, `${JSON.stringify(packageManifest, null, 2)}\n`);
     fs.writeFileSync(checksumsDestination, `${JSON.stringify({
       algorithm: 'sha256',
@@ -226,10 +216,6 @@ function main() {
     version: rootPackage.version,
     public_source: publicSourceMetadata,
     source_build: buildMetadata,
-    binary_license: {
-      file: 'LICENSE',
-      sha256: crypto.createHash('sha256').update(licenseContents).digest('hex')
-    },
     packages: staged
   }, null, 2)}\n`);
   console.log(JSON.stringify({ ok: true, version: rootPackage.version, package_count: staged.length, output }, null, 2));

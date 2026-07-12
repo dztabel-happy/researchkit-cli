@@ -120,20 +120,9 @@ jobs:
             echo "::error::Native build failed. Run the private manual sweep for details."
             exit 1
           fi
-      - name: Materialize binary license
-        shell: bash
-        env:
-          RESEARCHKIT_BINARY_LICENSE: ${{ secrets.RESEARCHKIT_BINARY_LICENSE }}
-          LICENSE_FILE: ${{ runner.temp }}/researchkit-binary-license
-        run: |
-          test -n "$RESEARCHKIT_BINARY_LICENSE"
-          printf '%s\n' "$RESEARCHKIT_BINARY_LICENSE" > "$LICENSE_FILE"
-          test -s "$LICENSE_FILE"
       - name: Stage host package
         shell: bash
-        env:
-          LICENSE_FILE: ${{ runner.temp }}/researchkit-binary-license
-        run: node public/scripts/stage-release.js --artifacts native-build --output host-stage --binary-license "$LICENSE_FILE" --host-only
+        run: node public/scripts/stage-release.js --artifacts native-build --output host-stage --host-only
       - name: Smoke clean host consumer
         shell: bash
         run: |
@@ -210,20 +199,9 @@ jobs:
             }
             end
           ' native-inputs/native-*/build-metadata.json > formal-build/build-metadata.json
-      - name: Materialize binary license
-        shell: bash
-        env:
-          RESEARCHKIT_BINARY_LICENSE: ${{ secrets.RESEARCHKIT_BINARY_LICENSE }}
-          LICENSE_FILE: ${{ runner.temp }}/researchkit-binary-license
-        run: |
-          test -n "$RESEARCHKIT_BINARY_LICENSE"
-          printf '%s\n' "$RESEARCHKIT_BINARY_LICENSE" > "$LICENSE_FILE"
-          test -s "$LICENSE_FILE"
       - name: Stage all publishable packages
         shell: bash
-        env:
-          LICENSE_FILE: ${{ runner.temp }}/researchkit-binary-license
-        run: node public/scripts/stage-release.js --artifacts formal-build --output formal-stage --binary-license "$LICENSE_FILE"
+        run: node public/scripts/stage-release.js --artifacts formal-build --output formal-stage
       - name: Verify and pack formal release
         shell: bash
         run: |

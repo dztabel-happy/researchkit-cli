@@ -95,13 +95,13 @@ For local development, build, stage, and verify only the current host target:
 
 ```bash
 node ../researchkit-cli-core/scripts/build-binary.js --out-dir /tmp/researchkit-core-build
-node scripts/stage-release.js --artifacts /tmp/researchkit-core-build --output /tmp/researchkit-release --binary-license /absolute/path/to/BINARY-LICENSE --host-only
+node scripts/stage-release.js --artifacts /tmp/researchkit-core-build --output /tmp/researchkit-release --host-only
 node scripts/release-preflight.js --stage /tmp/researchkit-release --host-only
 ```
 
 Formal all-target build, native-host smoke, packaging, attestation, and npm publishing use this public repository's `.github/workflows/release.yml`. The workflow is manually dispatched from a public `v<version>` tag and requires the same `core_ref` tag. It resolves both tags to immutable commits, checks out the private core with the read-only `CORE_CHECKOUT_SSH_KEY`, builds on four public runners, and publishes platform packages before the root wrapper. `publish=false` performs the complete dry run; `publish=true` is idempotent for packages already on npm.
 
-The public repository stores `CORE_CHECKOUT_SSH_KEY`, `NPM_TOKEN`, and `RESEARCHKIT_BINARY_LICENSE` as Actions secrets. The release workflow does not run private tests, print core files, or upload source. Private core bytes exist only in the temporary runner checkout; npm packages and uploaded release artifacts contain the verified native binaries, public wrapper, checksums, license, and release metadata.
+The public repository stores `CORE_CHECKOUT_SSH_KEY` and `NPM_TOKEN` as Actions secrets. The release workflow does not run private tests, print core files, or upload source. Private core bytes exist only in the temporary runner checkout; npm packages and uploaded release artifacts contain the verified native binaries, public wrapper, checksums, and release metadata. All npm package manifests declare `UNLICENSED`.
 
 Before dispatch, run the full core test, evaluation, and ecosystem acceptance locally, then push matching tags in both repositories:
 
@@ -114,7 +114,7 @@ gh workflow run release.yml -R dztabel-happy/researchkit-cli --ref v0.1.0 \
 
 The private core workflow is a manual diagnostic sweep only and never publishes npm packages.
 
-Preflight checks version lockstep, the exact `research-kit <version>` executable identity, source commits, every tar entry, executable modes, binary and license digests, every public root-package byte, SHA-256/SHA-512 package identities, and an isolated npm consumer install. A rerun skips an existing npm version only when its registry `dist.integrity` exactly matches the attested tarball.
+Preflight checks version lockstep, the exact `research-kit <version>` executable identity, source commits, every tar entry, executable modes, binary digests, every public root-package byte, SHA-256/SHA-512 package identities, and an isolated npm consumer install. A rerun skips an existing npm version only when its registry `dist.integrity` exactly matches the attested tarball.
 
 ## Boundary
 

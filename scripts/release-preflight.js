@@ -152,6 +152,9 @@ function cleanEnvironment() {
 function validateMetadata(rootPackage, meta) {
   const repository = { type: 'git', url: 'https://github.com/dztabel-happy/researchkit-cli.git' };
   if (!sameJson(rootPackage.repository, repository)) throw new Error('root package repository metadata mismatch');
+  if (rootPackage.license !== 'UNLICENSED' || rootPackage.files.includes('LICENSE')) {
+    throw new Error('root package license contract mismatch');
+  }
   const expected = Object.fromEntries(meta.platform_packages.map((entry) => [entry.package, rootPackage.version]));
   if (JSON.stringify(rootPackage.optionalDependencies) !== JSON.stringify(expected)) {
     throw new Error('optionalDependencies do not match platform metadata');
@@ -168,6 +171,9 @@ function validateMetadata(rootPackage, meta) {
     if (template.os[0] !== entry.os || template.cpu[0] !== entry.cpu) throw new Error(`platform target mismatch: ${entry.package}`);
     if (template.bin[meta.binary_name] !== expectedBinary) throw new Error(`platform binary metadata mismatch: ${entry.package}`);
     if (template.private !== true) throw new Error(`platform template must remain private: ${entry.package}`);
+    if (template.license !== 'UNLICENSED' || template.files.includes('LICENSE')) {
+      throw new Error(`platform template license contract mismatch: ${entry.package}`);
+    }
     if (!sameJson(template.repository, repository)) throw new Error(`platform repository metadata mismatch: ${entry.package}`);
   }
 }
@@ -202,9 +208,6 @@ function validateStage(stage, meta, entries, rootPackage) {
   const currentPublic = publicSource();
   if (release.public_source?.commit !== currentPublic.commit) throw new Error('public source commit mismatch');
   if (release.public_source?.dirty !== false || currentPublic.dirty) throw new Error('public source must be clean for release');
-  if (!release.binary_license || !/^[0-9a-f]{64}$/.test(release.binary_license.sha256 || '')) {
-    throw new Error('release metadata binary license checksum missing');
-  }
   if (!Array.isArray(release.packages) || release.packages.length !== entries.length) {
     throw new Error('release metadata package count mismatch');
   }
@@ -215,6 +218,9 @@ function validateStage(stage, meta, entries, rootPackage) {
     const packageJson = readJson(path.join(packageDir, 'package.json'));
     if (Object.hasOwn(packageJson, 'private')) throw new Error(`staged package must be publishable: ${entry.directory}`);
     if (packageJson.name !== entry.package || packageJson.version !== entry.version) throw new Error(`staged package metadata mismatch: ${entry.directory}`);
+    if (packageJson.license !== 'UNLICENSED' || packageJson.files.includes('LICENSE')) {
+      throw new Error(`staged package license contract mismatch: ${entry.directory}`);
+    }
     if (packageJson.os[0] !== entry.os || packageJson.cpu[0] !== entry.cpu) throw new Error(`staged package target mismatch: ${entry.directory}`);
     const binaryRel = packageJson.bin[meta.binary_name];
     const expectedBinary = entry.os === 'win32' ? 'bin/research-kit.exe' : 'bin/research-kit';
@@ -233,9 +239,6 @@ function validateStage(stage, meta, entries, rootPackage) {
     }
     if (sourceTarget.sha256 !== digest) throw new Error(`source build artifact checksum mismatch: ${entry.directory}`);
     if (sourceTarget.size !== binaryStat.size) throw new Error(`source build artifact size mismatch: ${entry.directory}`);
-    const license = path.join(packageDir, 'LICENSE');
-    if (!fs.statSync(license).isFile() || fs.readFileSync(license, 'utf8').trim() === '') throw new Error(`binary license missing: ${entry.directory}`);
-    if (sha256(license) !== release.binary_license.sha256) throw new Error(`binary license checksum mismatch: ${entry.directory}`);
     const released = release.packages.find((item) => item.target === entry.directory);
     if (!released || released.package !== entry.package || released.binary !== binaryRel || released.sha256 !== digest) {
       throw new Error(`release package metadata mismatch: ${entry.directory}`);
@@ -340,7 +343,7 @@ function verifyDistribution(stage, release, entries, rootPackage) {
     if (descriptor.package !== entry.package || !sameJson(manifest, stagedManifest)) {
       throw new Error(`platform package manifest mismatch: ${entry.directory}`);
     }
-    const expectedFiles = ['LICENSE', 'checksums.json', 'package.json', expectedBinary].sort();
+    const expectedFiles = ['checksums.json', 'package.json', expectedBinary].sort();
     if (!sameJson(packageFiles(archive), expectedFiles)) throw new Error(`platform package contents mismatch: ${entry.directory}`);
     const binary = archiveEntry(archive, expectedBinary, 'platform package binary');
     const digest = sha256Buffer(binary.data);
@@ -357,10 +360,6 @@ function verifyDistribution(stage, release, entries, rootPackage) {
       || !sameJson(Object.keys(checksums.files || {}).sort(), [expectedBinary])
       || checksums.files[expectedBinary] !== digest) {
       throw new Error(`platform package checksums mismatch: ${entry.directory}`);
-    }
-    const license = archiveEntry(archive, 'LICENSE', 'platform package license');
-    if (release.binary_license.file !== 'LICENSE' || sha256Buffer(license.data) !== release.binary_license.sha256) {
-      throw new Error(`platform package license mismatch: ${entry.directory}`);
     }
   }
 }

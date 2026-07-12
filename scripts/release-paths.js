@@ -28,12 +28,11 @@ function overlaps(left, right) {
   return isSameOrAncestor(left, right) || isSameOrAncestor(right, left);
 }
 
-function validateOutputPath(output, artifacts, binaryLicense, publicRoot, home) {
+function validateOutputPath(output, artifacts, publicRoot, home) {
   const unsafe = output === path.parse(output).root
     || isSameOrAncestor(output, home)
     || overlaps(output, publicRoot)
-    || overlaps(output, artifacts)
-    || overlaps(output, binaryLicense);
+    || overlaps(output, artifacts);
   if (unsafe) throw new Error(`unsafe release output path: ${output}`);
 }
 

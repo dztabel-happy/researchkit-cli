@@ -228,7 +228,6 @@ function makeReleaseInput(options = {}) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'researchkit-hardening-'));
   const artifacts = path.join(tmp, 'artifacts');
   const output = path.join(tmp, 'staged');
-  const binaryLicense = path.join(tmp, 'BINARY-LICENSE');
   const meta = readJson(path.join(root, 'platform', 'packages.json'));
   const entries = options.entries || meta.platform_packages;
   const metadata = {
@@ -241,7 +240,6 @@ function makeReleaseInput(options = {}) {
     source_dirty: false,
     targets: []
   };
-  write(binaryLicense, 'Test-only binary license fixture.\n');
   for (const entry of entries) {
     const artifact = path.join(artifacts, entry.artifact);
     const override = options.binaries && options.binaries[entry.directory];
@@ -266,7 +264,7 @@ function makeReleaseInput(options = {}) {
     });
   }
   write(path.join(artifacts, 'build-metadata.json'), `${JSON.stringify(metadata, null, 2)}\n`);
-  return { tmp, artifacts, output, binaryLicense, meta, metadata };
+  return { tmp, artifacts, output, meta, metadata };
 }
 
 function saveMetadata(input) {
@@ -285,7 +283,6 @@ function stage(input, extra = []) {
     input.stageScript || stageScript,
     '--artifacts', input.artifacts,
     '--output', input.output,
-    '--binary-license', input.binaryLicense,
     ...extra
   ]);
 }
@@ -321,7 +318,12 @@ test('checked-in platform templates stay private while the public release workfl
   for (const entry of meta.platform_packages) {
     const template = readJson(path.join(root, 'platform-packages', entry.directory, 'package.json'));
     assert.equal(template.private, true, entry.directory);
+    assert.equal(template.license, 'UNLICENSED', entry.directory);
+    assert.equal(template.files.includes('LICENSE'), false, entry.directory);
   }
+  const rootPackage = readJson(path.join(root, 'package.json'));
+  assert.equal(rootPackage.license, 'UNLICENSED');
+  assert.equal(rootPackage.files.includes('LICENSE'), false);
 
   assert.equal(fs.existsSync(path.join(coreRoot, '.github', 'workflows', 'native-release.yml')), false);
   const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'release.yml'), 'utf8');
@@ -335,8 +337,7 @@ test('checked-in platform templates stay private while the public release workfl
   assert.doesNotMatch(workflow, /binary_license_path|public_repository/);
   assert.match(workflow, /repository:\s*dztabel-happy\/researchkit-cli-core/);
   assert.match(workflow, /ssh-key:\s*\$\{\{ secrets\.CORE_CHECKOUT_SSH_KEY \}\}/);
-  assert.match(workflow, /RESEARCHKIT_BINARY_LICENSE/);
-  assert.match(workflow, /test -s "\$LICENSE_FILE"/);
+  assert.doesNotMatch(workflow, /RESEARCHKIT_BINARY_LICENSE|LICENSE_FILE|--binary-license/);
   assert.match(workflow, /ref:\s*\$\{\{ inputs\.core_ref \}\}/);
   assert.match(workflow, /fetch-depth:\s*0/);
   assert.match(workflow, /expected_tag="v\$\{core_version\}"/);
@@ -388,7 +389,7 @@ test('checked-in platform templates stay private while the public release workfl
   assert.match(ci, /oven-sh\/setup-bun@[0-9a-f]{40}/);
 
   const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
-  assert.match(readme, /stage-release\.js[^\n]+--binary-license/);
+  assert.doesNotMatch(readme, /stage-release\.js[^\n]+--binary-license/);
   assert.match(readme, /stage-release\.js[^\n]+--host-only/);
   assert.match(readme, /release\.yml/);
   assert.match(readme, /CORE_CHECKOUT_SSH_KEY/);
@@ -507,8 +508,6 @@ test('stage-release classifies destructive and overlapping outputs without invok
   const { canonicalPath, validateOutputPath } = require('../scripts/release-paths');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'researchkit-output-safety-'));
   const artifacts = path.join(tmp, 'artifacts', 'input');
-  const binaryLicense = path.join(tmp, 'license-input', 'BINARY-LICENSE');
-  write(binaryLicense, 'Test-only binary license fixture.\n');
   const candidates = [
     path.parse(root).root,
     os.homedir(),
@@ -516,15 +515,13 @@ test('stage-release classifies destructive and overlapping outputs without invok
     path.dirname(root),
     artifacts,
     path.dirname(artifacts),
-    path.join(artifacts, 'nested-output'),
-    path.dirname(binaryLicense)
+    path.join(artifacts, 'nested-output')
   ];
 
   for (const output of candidates) {
     assert.throws(() => validateOutputPath(
       canonicalPath(output),
       canonicalPath(artifacts),
-      canonicalPath(binaryLicense),
       canonicalPath(root),
       canonicalPath(os.homedir())
     ), /unsafe release output path/, output);
@@ -558,8 +555,7 @@ test('stage-release rejects metadata and template paths that escape staging befo
   const directoryResult = run(process.execPath, [
     path.join(directoryCopy, 'scripts', 'stage-release.js'),
     '--artifacts', directoryInput.artifacts,
-    '--output', directoryInput.output,
-    '--binary-license', directoryInput.binaryLicense
+    '--output', directoryInput.output
   ]);
   assert.notEqual(directoryResult.status, 0);
   assert.match(directoryResult.stderr, /platform directory metadata mismatch/);
@@ -582,30 +578,23 @@ test('stage-release rejects metadata and template paths that escape staging befo
   const binaryResult = run(process.execPath, [
     path.join(binaryCopy, 'scripts', 'stage-release.js'),
     '--artifacts', binaryInput.artifacts,
-    '--output', binaryInput.output,
-    '--binary-license', binaryInput.binaryLicense
+    '--output', binaryInput.output
   ]);
   assert.notEqual(binaryResult.status, 0);
   assert.match(binaryResult.stderr, /platform template target mismatch/);
   assert.equal(fs.readFileSync(escapedBinary, 'utf8'), 'preserve');
 });
 
-test('stage-release requires explicit non-empty binary license before cleanup', () => {
+test('stage-release requires artifacts and output before cleanup', () => {
   const input = makeReleaseInput();
-  write(input.binaryLicense, '');
   write(path.join(input.output, 'preserve.txt'), 'keep');
-  const result = stage(input);
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /binary license/i);
-  assert.equal(fs.readFileSync(path.join(input.output, 'preserve.txt'), 'utf8'), 'keep');
-
   const missing = run(process.execPath, [
     stageScript,
-    '--artifacts', input.artifacts,
-    '--output', input.output
+    '--artifacts', input.artifacts
   ]);
   assert.notEqual(missing.status, 0);
-  assert.match(missing.stderr, /binary-license/);
+  assert.match(missing.stderr, /--output/);
+  assert.equal(fs.readFileSync(path.join(input.output, 'preserve.txt'), 'utf8'), 'keep');
 });
 
 test('native parser rejects unverified entry commands and virtual-only entry bytes', () => {
@@ -781,8 +770,10 @@ test('host-only staging remains available and release metadata is independently 
 
   const packageJson = readJson(path.join(input.output, host.directory, 'package.json'));
   assert.equal(packageJson.private, undefined);
-  assert.equal(fs.readFileSync(path.join(input.output, host.directory, 'LICENSE'), 'utf8'), 'Test-only binary license fixture.\n');
+  assert.equal(packageJson.license, 'UNLICENSED');
+  assert.equal(fs.existsSync(path.join(input.output, host.directory, 'LICENSE')), false);
   const release = readJson(path.join(input.output, 'release-metadata.json'));
+  assert.equal(Object.hasOwn(release, 'binary_license'), false);
   assert.equal(release.source_build.source_commit, 'b'.repeat(40));
   assert.equal(release.source_build.source_dirty, false);
   assert.equal(release.source_build.targets[0].smoke_ok, true);
