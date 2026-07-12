@@ -140,6 +140,24 @@ jobs:
             echo "::error::Native build failed after executable output. version_smoke=$version_status help_smoke=$help_status archive=$archive_status no_bytecode=$no_bytecode_status"
             exit 1
           fi
+      - name: Encrypt private build diagnostics
+        if: failure()
+        shell: bash
+        env:
+          DIAGNOSTIC_KEY: ${{ secrets.RESEARCHKIT_DIAGNOSTIC_KEY }}
+          DIAGNOSTIC_INPUT: ${{ runner.temp }}/researchkit-build.log
+          DIAGNOSTIC_OUTPUT: ${{ runner.temp }}/researchkit-build.log.enc
+        run: |
+          test -s "$DIAGNOSTIC_INPUT"
+          node -e 'const crypto=require("node:crypto"); const fs=require("node:fs"); const key=Buffer.from(process.env.DIAGNOSTIC_KEY, "hex"); if (key.length !== 32) throw new Error("invalid diagnostic key"); const iv=crypto.randomBytes(12); const cipher=crypto.createCipheriv("aes-256-gcm", key, iv); const body=Buffer.concat([cipher.update(fs.readFileSync(process.env.DIAGNOSTIC_INPUT)), cipher.final()]); fs.writeFileSync(process.env.DIAGNOSTIC_OUTPUT, Buffer.concat([iv, cipher.getAuthTag(), body]));'
+      - name: Upload encrypted build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: encrypted-native-diagnostic-${{ matrix.key }}
+          path: ${{ runner.temp }}/researchkit-build.log.enc
+          if-no-files-found: error
+          retention-days: 1
       - name: Stage host package
         shell: bash
         run: node public/scripts/stage-release.js --artifacts native-build --output host-stage --host-only
