@@ -361,7 +361,9 @@ test('checked-in platform templates stay private while the public release workfl
   assert.match(workflow, /scripts\/build-binary\.js/);
   assert.match(workflow, /researchkit-build\.log" 2>&1/);
   assert.match(workflow, /Native build failed before executable output\./);
-  assert.match(workflow, /version_smoke=\$version_status help_smoke=\$help_status archive=\$archive_status no_bytecode=\$no_bytecode_status/);
+  assert.match(workflow, /version_smoke=\$version_status help_smoke=\$help_status archive=\$archive_status/);
+  assert.match(workflow, /bun-v1\.3\.13\/bun-windows-x64-baseline\.zip/);
+  assert.doesNotMatch(workflow, /RESEARCHKIT_DIAGNOSTIC_KEY|encrypted-native-diagnostic|no_bytecode/);
   assert.doesNotMatch(workflow, /cat[^\n]*researchkit-build\.log/);
   assert.match(workflow, /concurrency:/);
   assert.match(workflow, /cancel-in-progress:\s*false/);
