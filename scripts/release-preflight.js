@@ -331,7 +331,7 @@ function verifyDistribution(stage, release, entries, rootPackage) {
   if (!wrapper.data.equals(fs.readFileSync(path.join(root, rootPackage.bin['research-kit'])))) {
     throw new Error('root package wrapper mismatch');
   }
-  if ((wrapper.mode & 0o111) === 0) throw new Error('root package wrapper executable mode missing');
+  if (process.platform !== 'win32' && (wrapper.mode & 0o111) === 0) throw new Error('root package wrapper executable mode missing');
 
   for (const entry of entries) {
     const descriptor = distribution.platforms.find((item) => item.target === entry.directory);

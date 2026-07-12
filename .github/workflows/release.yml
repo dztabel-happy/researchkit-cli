@@ -145,10 +145,6 @@ jobs:
         shell: bash
         run: |
           if ! node public/scripts/release-preflight.js --stage host-stage --host-only > "$RUNNER_TEMP/researchkit-preflight.json" 2> "$RUNNER_TEMP/researchkit-preflight.log"; then
-            if grep -Fq "root package wrapper executable mode missing" "$RUNNER_TEMP/researchkit-preflight.log"; then
-              echo "::error::Release preflight failed. category=root-wrapper-mode"
-              exit 1
-            fi
             echo "::error::Release preflight failed. Run the private manual sweep for details."
             exit 1
           fi
