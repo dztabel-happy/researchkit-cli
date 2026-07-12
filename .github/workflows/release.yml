@@ -117,7 +117,19 @@ jobs:
         shell: bash
         run: |
           if ! node core/scripts/build-binary.js --target ${{ matrix.target }} --out-dir native-build > "$RUNNER_TEMP/researchkit-build.log" 2>&1; then
-            echo "::error::Native build failed. Run the private manual sweep for details."
+            binary="native-build/platforms/${{ matrix.key }}/bin/research-kit"
+            if [ "${{ matrix.key }}" = "win32-x64" ]; then binary="${binary}.exe"; fi
+            if [ ! -f "$binary" ]; then
+              echo "::error::Native build failed before executable output."
+              exit 1
+            fi
+            version_status=failed
+            help_status=failed
+            archive_status=missing
+            if "$binary" --version > /dev/null 2>&1; then version_status=passed; fi
+            if "$binary" --help > /dev/null 2>&1; then help_status=passed; fi
+            if [ -f "native-build/${{ matrix.key }}.zip" ]; then archive_status=present; fi
+            echo "::error::Native build failed after executable output. version_smoke=$version_status help_smoke=$help_status archive=$archive_status"
             exit 1
           fi
       - name: Stage host package

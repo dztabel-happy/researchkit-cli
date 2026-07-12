@@ -360,7 +360,9 @@ test('checked-in platform templates stay private while the public release workfl
   assert.match(workflow, /chmod \+x formal-build\/platforms\/linux-x64\/bin\/research-kit/);
   assert.match(workflow, /scripts\/build-binary\.js/);
   assert.match(workflow, /researchkit-build\.log" 2>&1/);
-  assert.match(workflow, /Native build failed\. Run the private manual sweep for details\./);
+  assert.match(workflow, /Native build failed before executable output\./);
+  assert.match(workflow, /version_smoke=\$version_status help_smoke=\$help_status archive=\$archive_status/);
+  assert.doesNotMatch(workflow, /cat[^\n]*researchkit-build\.log/);
   assert.match(workflow, /concurrency:/);
   assert.match(workflow, /cancel-in-progress:\s*false/);
   assert.match(workflow, /jq -s --arg core_sha/);
