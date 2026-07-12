@@ -1,0 +1,254 @@
+name: Release platform packages
+
+# Public runners build the private core through a read-only deploy key. Core source
+# never enters this repository, npm packages, or uploaded release artifacts.
+on:
+  workflow_dispatch:
+    inputs:
+      core_ref:
+        description: "Private core tag matching the public version (v<version>)"
+        required: true
+        type: string
+      publish:
+        description: "Publish npm packages after successful verification"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: researchkit-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  prepare:
+    name: Bind public and core release tags
+    runs-on: ubuntu-latest
+    outputs:
+      public_sha: ${{ steps.source.outputs.public_sha }}
+      core_sha: ${{ steps.source.outputs.core_sha }}
+    steps:
+      - name: Check out public release source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          path: public
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out private core source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: dztabel-happy/researchkit-cli-core
+          ref: ${{ inputs.core_ref }}
+          path: core
+          fetch-depth: 0
+          persist-credentials: false
+          ssh-key: ${{ secrets.CORE_CHECKOUT_SSH_KEY }}
+      - name: Verify matching release tags and versions
+        id: source
+        shell: bash
+        env:
+          EVENT_REF_NAME: ${{ github.ref_name }}
+          EVENT_REF_TYPE: ${{ github.ref_type }}
+          CORE_REF: ${{ inputs.core_ref }}
+        run: |
+          public_version="$(node -p "require('./public/package.json').version")"
+          core_version="$(node -p "require('./core/package.json').version")"
+          expected_tag="v${core_version}"
+          test "$EVENT_REF_TYPE" = "tag"
+          test "$EVENT_REF_NAME" = "$expected_tag"
+          test "$CORE_REF" = "$expected_tag"
+          test "$public_version" = "$core_version"
+          test "$(git -C public rev-list -n 1 "$expected_tag")" = "$(git -C public rev-parse HEAD)"
+          test "$(git -C core rev-list -n 1 "$expected_tag")" = "$(git -C core rev-parse HEAD)"
+          echo "public_sha=$(git -C public rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "core_sha=$(git -C core rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build-smoke:
+    name: Build and smoke ${{ matrix.key }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: bun-darwin-arm64
+            key: darwin-arm64
+          - runner: macos-15-intel
+            target: bun-darwin-x64
+            key: darwin-x64
+          - runner: ubuntu-latest
+            target: bun-linux-x64-baseline
+            key: linux-x64
+          - runner: windows-latest
+            target: bun-windows-x64-baseline
+            key: win32-x64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out public release source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.public_sha }}
+          path: public
+          persist-credentials: false
+      - name: Check out private core source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: dztabel-happy/researchkit-cli-core
+          ref: ${{ needs.prepare.outputs.core_sha }}
+          path: core
+          persist-credentials: false
+          ssh-key: ${{ secrets.CORE_CHECKOUT_SSH_KEY }}
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.13
+      - name: Build native target
+        shell: bash
+        run: |
+          if ! node core/scripts/build-binary.js --target ${{ matrix.target }} --out-dir native-build > "$RUNNER_TEMP/researchkit-build.log" 2>&1; then
+            echo "::error::Native build failed. Run the private manual sweep for details."
+            exit 1
+          fi
+      - name: Materialize binary license
+        shell: bash
+        env:
+          RESEARCHKIT_BINARY_LICENSE: ${{ secrets.RESEARCHKIT_BINARY_LICENSE }}
+          LICENSE_FILE: ${{ runner.temp }}/researchkit-binary-license
+        run: |
+          test -n "$RESEARCHKIT_BINARY_LICENSE"
+          printf '%s\n' "$RESEARCHKIT_BINARY_LICENSE" > "$LICENSE_FILE"
+          test -s "$LICENSE_FILE"
+      - name: Stage host package
+        shell: bash
+        env:
+          LICENSE_FILE: ${{ runner.temp }}/researchkit-binary-license
+        run: node public/scripts/stage-release.js --artifacts native-build --output host-stage --binary-license "$LICENSE_FILE" --host-only
+      - name: Smoke clean host consumer
+        shell: bash
+        run: |
+          if ! node public/scripts/release-preflight.js --stage host-stage --host-only > "$RUNNER_TEMP/researchkit-preflight.json" 2> "$RUNNER_TEMP/researchkit-preflight.log"; then
+            echo "::error::Release preflight failed. Run the private manual sweep for details."
+            exit 1
+          fi
+          node -e 'const fs=require("node:fs"); const p=JSON.parse(fs.readFileSync(process.argv[1], "utf8")); console.log(JSON.stringify({ok:p.ok, version:p.version, package_count:p.package_count}));' "$RUNNER_TEMP/researchkit-preflight.json"
+      - name: Upload verified native input
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-${{ matrix.key }}
+          path: |
+            native-build/build-metadata.json
+            native-build/platforms/
+          if-no-files-found: error
+          retention-days: 1
+
+  release-stage:
+    name: Assemble and publish the verified release
+    needs: [prepare, build-smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out public release source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.prepare.outputs.public_sha }}
+          path: public
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+      - name: Download verified native inputs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: native-*
+          path: native-inputs
+      - name: Assemble formal core input
+        shell: bash
+        run: |
+          mkdir -p formal-build/platforms
+          for artifact in native-inputs/native-*; do
+            cp -R "$artifact/platforms/." formal-build/platforms/
+          done
+          chmod +x formal-build/platforms/darwin-arm64/bin/research-kit
+          chmod +x formal-build/platforms/darwin-x64/bin/research-kit
+          chmod +x formal-build/platforms/linux-x64/bin/research-kit
+          jq -s --arg core_sha "${{ needs.prepare.outputs.core_sha }}" '
+            if length != 4 then error("native build count mismatch")
+            elif any(.[]; .source_commit != $core_sha) then error("source_commit mismatch")
+            elif any(.[]; .source_dirty != false) then error("source_dirty must be false")
+            elif ([.[].schema_version] | unique) != ["1.0.0"] then error("schema_version mismatch")
+            elif ([.[].version] | unique | length) != 1 then error("version mismatch")
+            elif ([.[].compiler] | unique | length) != 1 then error("compiler mismatch")
+            elif any(.[]; .ok != true or .kind != "native_executable" or .native_binary != true) then error("native build identity mismatch")
+            elif any(.[]; (.targets | length) != 1) then error("native target cardinality mismatch")
+            elif ([.[].targets[0].key] | sort) != ["darwin-arm64", "darwin-x64", "linux-x64", "win32-x64"] then error("native target set mismatch")
+            else {
+              schema_version: "1.0.0",
+              version: .[0].version,
+              ok: true,
+              kind: "native_executable",
+              native_binary: true,
+              compiler: .[0].compiler,
+              source_commit: $core_sha,
+              source_dirty: false,
+              targets: ([.[].targets[0]] | sort_by(.key))
+            }
+            end
+          ' native-inputs/native-*/build-metadata.json > formal-build/build-metadata.json
+      - name: Materialize binary license
+        shell: bash
+        env:
+          RESEARCHKIT_BINARY_LICENSE: ${{ secrets.RESEARCHKIT_BINARY_LICENSE }}
+          LICENSE_FILE: ${{ runner.temp }}/researchkit-binary-license
+        run: |
+          test -n "$RESEARCHKIT_BINARY_LICENSE"
+          printf '%s\n' "$RESEARCHKIT_BINARY_LICENSE" > "$LICENSE_FILE"
+          test -s "$LICENSE_FILE"
+      - name: Stage all publishable packages
+        shell: bash
+        env:
+          LICENSE_FILE: ${{ runner.temp }}/researchkit-binary-license
+        run: node public/scripts/stage-release.js --artifacts formal-build --output formal-stage --binary-license "$LICENSE_FILE"
+      - name: Verify and pack formal release
+        shell: bash
+        run: |
+          if ! node public/scripts/release-preflight.js --stage formal-stage > formal-preflight.json 2> "$RUNNER_TEMP/researchkit-preflight.log"; then
+            echo "::error::Release preflight failed. Run the private manual sweep for details."
+            exit 1
+          fi
+          node -e 'const p=require("./formal-preflight.json"); console.log(JSON.stringify({ok:p.ok, version:p.version, package_count:p.package_count}));'
+      - name: Attest exact release files
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: |
+            formal-stage/packages/*.tgz
+            formal-stage/release-metadata.json
+      - name: Publish npm packages
+        if: ${{ github.event.inputs.publish == 'true' }}
+        run: node public/scripts/publish-release.js --stage formal-stage
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Preserve the verified stage
+        run: tar -czf researchkit-native-release-stage.tar.gz formal-stage formal-preflight.json
+      - name: Upload formal release stage
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: researchkit-native-release-stage
+          path: researchkit-native-release-stage.tar.gz
+          if-no-files-found: error
+          retention-days: 1

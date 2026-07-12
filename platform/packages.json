@@ -3,10 +3,11 @@
   "binary_name": "research-kit",
   "core_package": "@dztabel/researchkit-cli-core",
   "env_override": "RESEARCHKIT_CORE_BIN",
+  "development_mode_env": "RESEARCHKIT_DEV_MODE",
   "platform_packages": [
-    { "os": "darwin", "cpu": "arm64", "package": "@dztabel/researchkit-darwin-arm64", "optional": true },
-    { "os": "darwin", "cpu": "x64", "package": "@dztabel/researchkit-darwin-x64", "optional": true },
-    { "os": "linux", "cpu": "x64", "package": "@dztabel/researchkit-linux-x64", "optional": true },
-    { "os": "win32", "cpu": "x64", "package": "@dztabel/researchkit-win32-x64", "optional": true }
+    { "os": "darwin", "cpu": "arm64", "package": "@dztabel/researchkit-darwin-arm64", "version": "0.1.0", "directory": "darwin-arm64", "artifact": "platforms/darwin-arm64/bin/research-kit", "optional": true },
+    { "os": "darwin", "cpu": "x64", "package": "@dztabel/researchkit-darwin-x64", "version": "0.1.0", "directory": "darwin-x64", "artifact": "platforms/darwin-x64/bin/research-kit", "optional": true },
+    { "os": "linux", "cpu": "x64", "package": "@dztabel/researchkit-linux-x64", "version": "0.1.0", "directory": "linux-x64", "artifact": "platforms/linux-x64/bin/research-kit", "optional": true },
+    { "os": "win32", "cpu": "x64", "package": "@dztabel/researchkit-win32-x64", "version": "0.1.0", "directory": "win32-x64", "artifact": "platforms/win32-x64/bin/research-kit.exe", "optional": true }
   ]
 }

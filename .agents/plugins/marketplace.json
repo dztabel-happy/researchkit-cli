@@ -1,0 +1,20 @@
+{
+  "name": "researchkit",
+  "interface": {
+    "displayName": "ResearchKit"
+  },
+  "plugins": [
+    {
+      "name": "researchkit",
+      "source": {
+        "source": "local",
+        "path": "."
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

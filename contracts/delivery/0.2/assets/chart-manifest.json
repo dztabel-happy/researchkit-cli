@@ -1,0 +1,33 @@
+{
+  "ok": true,
+  "basename": "chart",
+  "formats": [
+    "svg",
+    "pdf",
+    "png"
+  ],
+  "outputs": {
+    "svg": "chart.svg",
+    "pdf": "chart.pdf",
+    "png": "chart.png"
+  },
+  "profile": "report_a4.compact",
+  "theme": "business-cn",
+  "contract_version": "0.1",
+  "layout": {
+    "recommended_insert_width_mm": 120.0,
+    "rendered_width_mm": 120.0
+  },
+  "source_data": [
+    {
+      "panel": "main",
+      "path": "source-data/basic-line.csv",
+      "sha256": "676ae81eacdb87bc181258c0a7b7cda7cad51ef4e6d6b519b9f8c603a16c7980"
+    }
+  ],
+  "script": {
+    "kind": "builtin"
+  },
+  "quality_report": "chart-quality.json",
+  "caption": "年度趋势"
+}

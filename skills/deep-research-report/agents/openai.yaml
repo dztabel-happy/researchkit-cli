@@ -1,0 +1,6 @@
+interface:
+  display_name: "Deep Research Report"
+  short_description: "Build traceable, approval-gated research reports"
+  default_prompt: "Use $deep-research-report to build a traceable research report with ResearchKit."
+policy:
+  allow_implicit_invocation: true

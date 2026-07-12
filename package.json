@@ -3,12 +3,20 @@
   "version": "0.1.0",
   "description": "Public npm entry for ResearchKit: thin wrapper, platform metadata, skill and examples.",
   "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dztabel-happy/researchkit-cli.git"
+  },
   "type": "commonjs",
   "bin": {
     "research-kit": "bin/research-kit.js"
   },
   "files": [
+    ".gitattributes",
+    ".agents/plugins/marketplace.json",
+    ".codex-plugin/",
     "bin/",
+    "contracts/",
     "platform/",
     "skills/",
     "examples/",
@@ -16,9 +24,21 @@
     "LICENSE"
   ],
   "scripts": {
-    "smoke": "node bin/research-kit.js --help"
+    "test": "node --test",
+    "smoke": "node scripts/dev-smoke.js",
+    "release:stage": "node scripts/stage-release.js",
+    "release:preflight": "node scripts/release-preflight.js"
+  },
+  "optionalDependencies": {
+    "@dztabel/researchkit-darwin-arm64": "0.1.0",
+    "@dztabel/researchkit-darwin-x64": "0.1.0",
+    "@dztabel/researchkit-linux-x64": "0.1.0",
+    "@dztabel/researchkit-win32-x64": "0.1.0"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

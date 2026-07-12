@@ -1,0 +1,22 @@
+{
+  "contract_version": "0.2",
+  "files": [
+    {
+      "path": "assets/chart-manifest.json",
+      "sha256": "c9200f1907079f2b37e1d36236b9fd1d5e6240683e91a9f2a3b9e14f57b8d9b5"
+    },
+    {
+      "path": "assets/chart.png",
+      "sha256": "d42479ac5cbd451fdd2910b41804b0327785b67c676bb5a0704a5a8bb2df92d8"
+    },
+    {
+      "path": "delivery-manifest.json",
+      "sha256": "eca37eaa3bb65981ca23af86c03168c08b70a3e7a97bb154e36ad6265606f20a"
+    },
+    {
+      "path": "report.md",
+      "sha256": "c91ca003573a687be3825384d2fa4dbcbc82032e3a0016167e89a74ec5e1a21b"
+    }
+  ],
+  "aggregate_sha256": "571222eab082e924f4bb0c2e9a98bd472afa049c076b9ea9c5936ab2d34f3b86"
+}

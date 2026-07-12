@@ -1,0 +1,5 @@
+contracts/delivery/0.2/contract.json text eol=lf
+contracts/delivery/0.2/delivery-manifest.json text eol=lf
+contracts/delivery/0.2/report.md text eol=lf
+contracts/delivery/0.2/assets/chart-manifest.json text eol=lf
+contracts/delivery/0.2/assets/chart.png binary

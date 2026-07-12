@@ -1,0 +1,22 @@
+{
+  "name": "researchkit",
+  "version": "0.1.0",
+  "description": "Traceable, approval-gated deep research report workflow for ResearchKit.",
+  "author": {
+    "name": "DZTabel"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "keywords": ["research", "reports", "evidence", "audit"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ResearchKit",
+    "shortDescription": "Traceable deep research reports",
+    "longDescription": "Build evidence-backed Markdown reports through ResearchKit's deterministic audit, approval, and finalization lifecycle.",
+    "developerName": "DZTabel",
+    "category": "Productivity",
+    "capabilities": ["Research", "Write"],
+    "defaultPrompt": [
+      "Create a traceable deep research report with ResearchKit."
+    ]
+  }
+}
