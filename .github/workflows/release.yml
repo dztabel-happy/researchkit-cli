@@ -119,8 +119,16 @@ jobs:
           if ! node core/scripts/build-binary.js --target ${{ matrix.target }} --out-dir native-build > "$RUNNER_TEMP/researchkit-build.log" 2>&1; then
             binary="native-build/platforms/${{ matrix.key }}/bin/research-kit"
             if [ "${{ matrix.key }}" = "win32-x64" ]; then binary="${binary}.exe"; fi
+            no_bytecode_status=not_run
             if [ ! -f "$binary" ]; then
-              echo "::error::Native build failed before executable output."
+              diagnostic="native-build/platforms/${{ matrix.key }}/bin/research-kit-no-bytecode"
+              if [ "${{ matrix.key }}" = "win32-x64" ]; then diagnostic="${diagnostic}.exe"; fi
+              no_bytecode_status=failed
+              if bun build core/bin/research-kit.js --compile --minify --target ${{ matrix.target }} --outfile "$diagnostic" > /dev/null 2>&1; then
+                no_bytecode_status=passed
+              fi
+              rm -f "$diagnostic"
+              echo "::error::Native build failed before executable output. no_bytecode=$no_bytecode_status"
               exit 1
             fi
             version_status=failed
@@ -129,7 +137,7 @@ jobs:
             if "$binary" --version > /dev/null 2>&1; then version_status=passed; fi
             if "$binary" --help > /dev/null 2>&1; then help_status=passed; fi
             if [ -f "native-build/${{ matrix.key }}.zip" ]; then archive_status=present; fi
-            echo "::error::Native build failed after executable output. version_smoke=$version_status help_smoke=$help_status archive=$archive_status"
+            echo "::error::Native build failed after executable output. version_smoke=$version_status help_smoke=$help_status archive=$archive_status no_bytecode=$no_bytecode_status"
             exit 1
           fi
       - name: Stage host package
